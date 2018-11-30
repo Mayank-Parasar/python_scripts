@@ -18,19 +18,60 @@ def findfiles(path, regex):
 	return res
 
 def idealSTAT(path, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
-	pass
-
-def escape_updnSTAT(path, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
-	pass
-
-def updnSTAT(path, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
 	for root, dirs, fnames in os.walk(path):
 		for dir in dirs:
 			if dir.lower() == "up_dn":
 				path2 = os.path.join(root, dir)
 				for root2, dirs2, fnames2 in os.walk(path2):
 					for dir2 in dirs2:
-						if dir2.lower() == "up_dn_":
+						if dir2.lower() == "ideal":
+							path3 = os.path.join(root2, dir2)
+							for root3, dirs3, fnames3 in os.walk(path3):
+								for dir3 in dirs3:
+									if dir3.lower() == "vc-128":
+										path4 = os.path.join(root3, dir3)
+										for root4, dirs4, fnames4 in os.walk(path4):
+											for dir4 in dirs4:
+												if dir4.lower() == traffic_:
+													path5 = os.path.join(root4, dir4)
+													for root5, dirs5, fnames5 in os.walk(path5):
+														for dir5 in dirs5:
+															if dir5.endswith("_" + str(num_fault) + ".txt"):
+																path6 = os.path.join(root5, dir5)
+																for root6, dirs6, fnames6 in os.walk(path6):
+																	for dir6 in dirs6:
+																		token = dir6.split('-')
+																		idx = float(token[1])
+																		index = int(idx*50) - 1
+																		file = dir6+"/stats.txt"
+																		filepath = os.path.join(root6, file)
+																		packet_latency = subprocess.check_output(
+																		"grep -nri average_packet_latency {0:s} | sed 's/.*system.ruby.network.average_packet_latency\s*//'"
+																		.format(filepath), shell=True)
+																		print(packet_latency)
+																		throuput = subprocess.check_output(
+																			"grep -nri packets_received::total {0:s} | sed 's/.*system.ruby.network.packets_received::total\s*//'"
+																			.format(filepath), shell=True)
+																		print(throuput)
+																		try:
+																			float(packet_latency)
+																			lat_matrix[index].append(float(packet_latency))
+																			pkt_lat[index] += float(packet_latency)
+																			thrpt[index] += int(throuput)
+																			cntr_[index] += 1
+																		except ValueError:
+																			print("Not a float")
+
+
+
+def updnSTAT(path, folder_, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
+	for root, dirs, fnames in os.walk(path):
+		for dir in dirs:
+			if dir.lower() == "up_dn":
+				path2 = os.path.join(root, dir)
+				for root2, dirs2, fnames2 in os.walk(path2):
+					for dir2 in dirs2:
+						if dir2.lower() == folder_:
 							path3 = os.path.join(root2, dir2)
 							for root3, dirs3, fnames3 in os.walk(path3):
 								for dir3 in dirs3:
@@ -67,7 +108,6 @@ def updnSTAT(path, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
 																			cntr_[index] += 1
 																		except ValueError:
 																			print("Not a float")
-
 
 # this function returns 1 list per configuration
 def spinSTAT(path, traffic_, num_vc, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
@@ -117,8 +157,6 @@ def spinSTAT(path, traffic_, num_vc, num_fault, cntr_, pkt_lat, thrpt, lat_matri
 																			cntr_[index] += 1
 																		except ValueError:
 																			print("Not a float")
-
-
 
 
 def drainSTAT(path, traffic_, freq, rot, num_vc, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
@@ -219,7 +257,8 @@ up_dn_thrpt = [0] * 21
 up_dn_avg_thrpt = []
 up_dn_lat_matrix = [[] for i in range(21)]
 #################################################################################################
-updnSTAT(path, traffic_pattern, num_fault, up_dn_cntr_, up_dn_pkt_lat, up_dn_thrpt, up_dn_lat_matrix)
+folder_name = "up_dn_"
+updnSTAT(path, folder_name, traffic_pattern, num_fault, up_dn_cntr_, up_dn_pkt_lat, up_dn_thrpt, up_dn_lat_matrix)
 print("up-dn")
 for itr in range(len(up_dn_cntr_)):
 	if up_dn_cntr_[itr] > 0:

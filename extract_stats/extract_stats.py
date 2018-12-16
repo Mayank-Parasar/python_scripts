@@ -95,11 +95,11 @@ def updnSTAT(path, folder_, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matr
 																		packet_latency = subprocess.check_output(
 																		"grep -nri average_packet_latency {0:s} | sed 's/.*system.ruby.network.average_packet_latency\s*//'"
 																		.format(filepath), shell=True)
-																		print(packet_latency)
+																		# print(packet_latency)
 																		throuput = subprocess.check_output(
 																			"grep -nri packets_received::total {0:s} | sed 's/.*system.ruby.network.packets_received::total\s*//'"
 																			.format(filepath), shell=True)
-																		print(throuput)
+																		# print(throuput)
 																		try:
 																			float(packet_latency)
 																			lat_matrix[index].append(float(packet_latency))
@@ -110,7 +110,7 @@ def updnSTAT(path, folder_, traffic_, num_fault, cntr_, pkt_lat, thrpt, lat_matr
 																			print("Not a float")
 
 # this function returns 1 list per configuration
-def spinSTAT(path, traffic_, num_vc, num_fault, cntr_, pkt_lat, thrpt, lat_matrix):
+def spinSTAT(path, traffic_, num_vc, num_fault, cntr_, pkt_lat, thrpt, total_spins, lat_matrix):
 	for root, dirs, fnames in os.walk(path):
 		for dir in dirs:
 			if dir.lower() == "spin":
@@ -148,12 +148,16 @@ def spinSTAT(path, traffic_, num_vc, num_fault, cntr_, pkt_lat, thrpt, lat_matri
 																		throuput = subprocess.check_output(
 																			"grep -nri packets_received::total {0:s} | sed 's/.*system.ruby.network.packets_received::total\s*//'"
 																			.format(filepath), shell=True)
+																		num_spin = subprocess.check_output(
+																			"grep -nri total_spins {0:s} | sed 's/.*total_spins\s*//'"
+																				.format(filepath), shell = True)
 																		# print(throuput)
 																		try:
 																			float(packet_latency)
 																			lat_matrix[index].append(float(packet_latency))
 																			pkt_lat[index] += float(packet_latency)
 																			thrpt[index] += int(throuput)
+																			total_spins[index] += int(num_spin)
 																			cntr_[index] += 1
 																		except ValueError:
 																			print("Not a float")
@@ -224,9 +228,9 @@ def usage():
 	print("Usage:")
 	print("  " + script_name + " <traffic-pattern> <num-vc> <num-fault>")
 
-if len(sys.argv) != 4:
-	usage()
-	sys.exit()
+# if len(sys.argv) != 4:
+# 	usage()
+# 	sys.exit()
 
 traffic_pattern = sys.argv[1]
 if (traffic_pattern != "uniform_random" and
@@ -241,12 +245,14 @@ if (traffic_pattern != "uniform_random" and
 	sys.exit()
 
 num_vc = sys.argv[2]
-num_fault = sys.argv[3]
+num_fault = int(sys.argv[3])
+type = sys.argv[4]
 
 path = os.getcwd()
 print(path)
 
 path = path + "/drain_isca2019_rslt/11-27-2018/"
+# path = path + "/drain_isca2019_rslt/12-06-2018/"
 folder = os.listdir(path)
 print(folder)
 
@@ -257,195 +263,257 @@ up_dn_thrpt = [0] * 21
 up_dn_avg_thrpt = []
 up_dn_lat_matrix = [[] for i in range(21)]
 #################################################################################################
-folder_name = "up_dn_"
-updnSTAT(path, folder_name, traffic_pattern, num_fault, up_dn_cntr_, up_dn_pkt_lat, up_dn_thrpt, up_dn_lat_matrix)
-print("up-dn")
-for itr in range(len(up_dn_cntr_)):
-	if up_dn_cntr_[itr] > 0:
-		up_dn_avg_pkt_lat.append(float(up_dn_pkt_lat[itr]/up_dn_cntr_[itr]))
-		up_dn_avg_thrpt.append((float(up_dn_thrpt[itr]) / up_dn_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(up_dn_cntr_[itr], up_dn_pkt_lat[itr], up_dn_thrpt[itr], np.var(up_dn_lat_matrix[itr]), up_dn_avg_pkt_lat[itr], up_dn_avg_thrpt[itr]))
-#################################################################################################
+if type.lower() == "up-dn":
+	folder_name = "up_dn_"
+	updnSTAT(path, folder_name, traffic_pattern, num_fault, up_dn_cntr_, up_dn_pkt_lat, up_dn_thrpt, up_dn_lat_matrix)
+	print("up-dn")
+	for itr in range(len(up_dn_cntr_)):
+		if up_dn_cntr_[itr] > 0:
+			up_dn_avg_pkt_lat.append(float(up_dn_pkt_lat[itr]/up_dn_cntr_[itr]))
+			up_dn_avg_thrpt.append((float(up_dn_thrpt[itr]) / up_dn_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(up_dn_cntr_[itr], up_dn_pkt_lat[itr], up_dn_thrpt[itr], np.var(up_dn_lat_matrix[itr]), up_dn_avg_pkt_lat[itr], up_dn_avg_thrpt[itr]))
 
-spin_256_cntr_ = [0] * 21
-spin_256_pkt_lat = [0] * 21
-spin_256_avg_pkt_lat = [] #make it empty
-spin_256_thrpt = [0] * 21
-spin_256_avg_thrpt = []
-spin_256_lat_matrix = [[] for i in range(21)]
-# var_mat_lat[0].append(1)
-# get the path for the traffic pattern folder
-# from here
-# SPIN-vc-1
-#################################################################################################
-spinSTAT(path, traffic_pattern, num_vc, num_fault, spin_256_cntr_, spin_256_pkt_lat, spin_256_thrpt, spin_256_lat_matrix)
-print("spin-256")
-for itr in range(len(spin_256_cntr_)):
-	if spin_256_cntr_[itr] > 0:
-		spin_256_avg_pkt_lat.append(float(spin_256_pkt_lat[itr]/spin_256_cntr_[itr]))
-		spin_256_avg_thrpt.append((float(spin_256_thrpt[itr]) / spin_256_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(spin_256_cntr_[itr], spin_256_pkt_lat[itr], spin_256_thrpt[itr], np.var(spin_256_lat_matrix[itr]), spin_256_avg_pkt_lat[itr], spin_256_avg_thrpt[itr]))
-#################################################################################################
+	for itr in range(len(up_dn_avg_pkt_lat)):
+		print(up_dn_avg_pkt_lat[itr]),
+		print(up_dn_avg_thrpt[itr])
 
-drain_100_1_cntr_ = [0] * 21
-drain_100_1_pkt_lat = [0] * 21
-drain_100_1_avg_pkt_lat = [] #make it empty
-drain_100_1_thrpt = [0] * 21
-drain_100_1_avg_thrpt = []
-drain_100_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
-#################################################################################################
-drainSTAT(path, traffic_pattern, 100, 1, num_vc, num_fault, drain_100_1_cntr_, drain_100_1_pkt_lat, drain_100_1_thrpt, drain_100_1_lat_matrix)
-print("drain_f-100_s-1")
-for itr in range(len(drain_100_1_cntr_)):
-	if drain_100_1_cntr_[itr] > 0:
-		drain_100_1_avg_pkt_lat.append(float(drain_100_1_pkt_lat[itr]/drain_100_1_cntr_[itr]))
-		drain_100_1_avg_thrpt.append((float(drain_100_1_thrpt[itr]) / drain_100_1_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_100_1_cntr_[itr], drain_100_1_pkt_lat[itr], drain_100_1_thrpt[itr], np.var(drain_100_1_lat_matrix[itr]), drain_100_1_avg_pkt_lat[itr], drain_100_1_avg_thrpt[itr]))
-#################################################################################################
+	for itr in range(len(up_dn_avg_pkt_lat)):
+		if up_dn_avg_pkt_lat[itr] > (3 * up_dn_avg_pkt_lat[0]):
+			break
 
-drain_100_8_cntr_ = [0] * 21
-drain_100_8_pkt_lat = [0] * 21
-drain_100_8_avg_pkt_lat = [] #make it empty
-drain_100_8_thrpt = [0] * 21
-drain_100_8_avg_thrpt = []
-drain_100_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
-#################################################################################################
-drainSTAT(path, traffic_pattern, 100, 8, num_vc, num_fault, drain_100_8_cntr_, drain_100_8_pkt_lat, drain_100_8_thrpt, drain_100_8_lat_matrix)
-print("drain_f-100_s-8")
-for itr in range(len(drain_100_8_cntr_)):
-	if drain_100_8_cntr_[itr] > 0:
-		drain_100_8_avg_pkt_lat.append(float(drain_100_8_pkt_lat[itr]/drain_100_8_cntr_[itr]))
-		drain_100_8_avg_thrpt.append((float(drain_100_8_thrpt[itr]) / drain_100_8_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_100_8_cntr_[itr], drain_100_8_pkt_lat[itr], drain_100_8_thrpt[itr], np.var(drain_100_8_lat_matrix[itr]), drain_100_8_avg_pkt_lat[itr], drain_100_8_avg_thrpt[itr]))
-#################################################################################################
+	sat_thrpt = up_dn_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
 
-drain_1000_1_cntr_ = [0] * 21
-drain_1000_1_pkt_lat = [0] * 21
-drain_1000_1_avg_pkt_lat = [] #make it empty
-drain_1000_1_thrpt = [0] * 21
-drain_1000_1_avg_thrpt = []
-drain_1000_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	print("max normalized throughput for fault-{1:d}-UP-DN: {0:f}".format(norm_sat_thrpt, num_fault))
+	print("low load latency for fault-{1:d}-UP-DN: {0:f}".format(up_dn_avg_pkt_lat[0], num_fault))
 #################################################################################################
-drainSTAT(path, traffic_pattern, 1000, 1, num_vc, num_fault, drain_1000_1_cntr_, drain_1000_1_pkt_lat, drain_1000_1_thrpt, drain_1000_1_lat_matrix)
-print("drain_f-1000_s-1")
-for itr in range(len(drain_1000_1_cntr_)):
-	if drain_1000_1_cntr_[itr] > 0:
-		drain_1000_1_avg_pkt_lat.append(float(drain_1000_1_pkt_lat[itr]/drain_1000_1_cntr_[itr]))
-		drain_1000_1_avg_thrpt.append((float(drain_1000_1_thrpt[itr]) / drain_1000_1_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_1000_1_cntr_[itr], drain_1000_1_pkt_lat[itr], drain_1000_1_thrpt[itr], np.var(drain_1000_1_lat_matrix[itr]), drain_1000_1_avg_pkt_lat[itr], drain_1000_1_avg_thrpt[itr]))
-#################################################################################################
+elif type.lower() == "spin":
+	spin_256_cntr_ = [0] * 21
+	spin_256_pkt_lat = [0] * 21
+	spin_256_avg_pkt_lat = [] #make it empty
+	spin_256_thrpt = [0] * 21
+	spin_256_avg_thrpt = []
+	spin_256_lat_matrix = [[] for i in range(21)]
+	spin_total_spins = [0] * 21
+	spin_avg_total_spins = []
+	#################################################################################################
+	spinSTAT(path, traffic_pattern, num_vc, num_fault, spin_256_cntr_, spin_256_pkt_lat, spin_256_thrpt, spin_total_spins,
+			 spin_256_lat_matrix)
+	print("spin-256")
+	for itr in range(len(spin_256_cntr_)):
+		if spin_256_cntr_[itr] > 0:
+			spin_256_avg_pkt_lat.append(float(spin_256_pkt_lat[itr]/spin_256_cntr_[itr]))
+			spin_256_avg_thrpt.append((float(spin_256_thrpt[itr]) / spin_256_cntr_[itr]))
+			spin_avg_total_spins.append((float(spin_total_spins[itr]))/ spin_256_cntr_[itr])
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(spin_256_cntr_[itr], spin_256_pkt_lat[itr], spin_256_thrpt[itr], np.var(spin_256_lat_matrix[itr]), spin_256_avg_pkt_lat[itr], spin_256_avg_thrpt[itr]))
 
-drain_1000_8_cntr_ = [0] * 21
-drain_1000_8_pkt_lat = [0] * 21
-drain_1000_8_avg_pkt_lat = [] #make it empty
-drain_1000_8_thrpt = [0] * 21
-drain_1000_8_avg_thrpt = []
-drain_1000_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
-#################################################################################################
-drainSTAT(path, traffic_pattern, 1000, 8, num_vc, num_fault, drain_1000_8_cntr_, drain_1000_8_pkt_lat, drain_1000_8_thrpt, drain_1000_8_lat_matrix)
-print("drain_f-1000_s-8")
-for itr in range(len(drain_1000_8_cntr_)):
-	if drain_1000_8_cntr_[itr] > 0:
-		drain_1000_8_avg_pkt_lat.append(float(drain_1000_8_pkt_lat[itr]/drain_1000_8_cntr_[itr]))
-		drain_1000_8_avg_thrpt.append((float(drain_1000_8_thrpt[itr]) / drain_1000_8_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_1000_8_cntr_[itr], drain_1000_8_pkt_lat[itr], drain_1000_8_thrpt[itr], np.var(drain_1000_8_lat_matrix[itr]), drain_1000_8_avg_pkt_lat[itr], drain_1000_8_avg_thrpt[itr]))
-#################################################################################################
+	for itr in range(len(spin_256_avg_pkt_lat)):
+		if spin_256_avg_pkt_lat[itr] > (3 * spin_256_avg_pkt_lat[0]):
+			print("saturation throughput for spin-256: {0:1.2f}".format((itr + 1) * 0.02))
+			break
 
-drain_5000_1_cntr_ = [0] * 21
-drain_5000_1_pkt_lat = [0] * 21
-drain_5000_1_avg_pkt_lat = [] #make it empty
-drain_5000_1_thrpt = [0] * 21
-drain_5000_1_avg_thrpt = []
-drain_5000_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
-#################################################################################################
-drainSTAT(path, traffic_pattern, 5000, 1, num_vc, num_fault, drain_5000_1_cntr_, drain_5000_1_pkt_lat, drain_5000_1_thrpt, drain_5000_1_lat_matrix)
-print("drain_f-5000_s-1")
-for itr in range(len(drain_5000_1_cntr_)):
-	if drain_5000_1_cntr_[itr] > 0:
-		drain_5000_1_avg_pkt_lat.append(float(drain_5000_1_pkt_lat[itr]/drain_5000_1_cntr_[itr]))
-		drain_5000_1_avg_thrpt.append((float(drain_5000_1_thrpt[itr]) / drain_5000_1_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_5000_1_cntr_[itr], drain_5000_1_pkt_lat[itr], drain_5000_1_thrpt[itr], np.var(drain_5000_1_lat_matrix[itr]), drain_5000_1_avg_pkt_lat[itr], drain_5000_1_avg_thrpt[itr]))
-#################################################################################################
+	sat_thrpt = spin_256_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
+	# print("spin-256 norm_sat_thrpt: {0:f}".format(norm_sat_thrpt))
+	# print("mean number of spins: {0:f}".format(np.mean(spin_avg_total_spins)))
+	#################################################################################################
 
-drain_5000_8_cntr_ = [0] * 21
-drain_5000_8_pkt_lat = [0] * 21
-drain_5000_8_avg_pkt_lat = [] #make it empty
-drain_5000_8_thrpt = [0] * 21
-drain_5000_8_avg_thrpt = []
-drain_5000_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
-#################################################################################################
-drainSTAT(path, traffic_pattern, 5000, 8, num_vc, num_fault, drain_5000_8_cntr_, drain_5000_8_pkt_lat, drain_5000_8_thrpt, drain_5000_8_lat_matrix)
-print("drain_f-5000_s-8")
-for itr in range(len(drain_5000_8_cntr_)):
-	if drain_5000_8_cntr_[itr] > 0:
-		drain_5000_8_avg_pkt_lat.append(float(drain_5000_8_pkt_lat[itr]/drain_5000_8_cntr_[itr]))
-		drain_5000_8_avg_thrpt.append((float(drain_5000_8_thrpt[itr]) / drain_5000_8_cntr_[itr]))
-		print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
-			  .format(drain_5000_8_cntr_[itr], drain_5000_8_pkt_lat[itr], drain_5000_8_thrpt[itr], np.var(drain_5000_8_lat_matrix[itr]), drain_5000_8_avg_pkt_lat[itr], drain_5000_8_avg_thrpt[itr]))
-#################################################################################################
+	drain_100_1_cntr_ = [0] * 21
+	drain_100_1_pkt_lat = [0] * 21
+	drain_100_1_avg_pkt_lat = [] #make it empty
+	drain_100_1_thrpt = [0] * 21
+	drain_100_1_avg_thrpt = []
+	drain_100_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 100, 1, num_vc, num_fault, drain_100_1_cntr_, drain_100_1_pkt_lat, drain_100_1_thrpt, drain_100_1_lat_matrix)
+	print("drain_f-100_s-1")
+	for itr in range(len(drain_100_1_cntr_)):
+		if drain_100_1_cntr_[itr] > 0:
+			drain_100_1_avg_pkt_lat.append(float(drain_100_1_pkt_lat[itr]/drain_100_1_cntr_[itr]))
+			drain_100_1_avg_thrpt.append((float(drain_100_1_thrpt[itr]) / drain_100_1_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_100_1_cntr_[itr], drain_100_1_pkt_lat[itr], drain_100_1_thrpt[itr], np.var(drain_100_1_lat_matrix[itr]), drain_100_1_avg_pkt_lat[itr], drain_100_1_avg_thrpt[itr]))
 
-# print(*a, sep = ", ")
-print("~~~~DONE~~~~~")
-print("spin-256"),
-for itr in spin_256_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-100_s-1"),
-for itr in drain_100_1_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-100_s-8"),
-for itr in drain_100_8_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-1000_s-1"),
-for itr in drain_1000_1_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-1000_s-8"),
-for itr in drain_1000_8_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-5000_s-1"),
-for itr in drain_5000_1_avg_pkt_lat:
-	print itr,
-print("")
-print("drain_f-5000_s-8"),
-for itr in drain_5000_8_avg_pkt_lat:
-	print itr,
-print("")
-print("~~~~AVG-THROUGH-PUT~~~~~")
-print("spin-256"),
-for itr in spin_256_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-100_s-1"),
-for itr in drain_100_1_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-100_s-8"),
-for itr in drain_100_8_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-1000_s-1"),
-for itr in drain_1000_1_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-1000_s-8"),
-for itr in drain_1000_8_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-5000_s-1"),
-for itr in drain_5000_1_avg_thrpt:
-	print itr,
-print("")
-print("drain_f-5000_s-8"),
-for itr in drain_5000_8_avg_thrpt:
-	print itr,
+	for itr in range(len(drain_100_1_avg_pkt_lat)):
+		if drain_100_1_avg_pkt_lat[itr] > (3 * drain_100_1_avg_pkt_lat[0]):
+			print("saturation throughput for d-100-s-1: {0:1.2f}".format((itr + 1) * 0.02))
+			break
+
+	sat_thrpt = drain_100_1_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
+	# print("drain-100-1 norm_sat_thrpt: {0:f}".format(norm_sat_thrpt))
+	#################################################################################################
+
+	drain_100_8_cntr_ = [0] * 21
+	drain_100_8_pkt_lat = [0] * 21
+	drain_100_8_avg_pkt_lat = [] #make it empty
+	drain_100_8_thrpt = [0] * 21
+	drain_100_8_avg_thrpt = []
+	drain_100_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 100, 8, num_vc, num_fault, drain_100_8_cntr_, drain_100_8_pkt_lat, drain_100_8_thrpt, drain_100_8_lat_matrix)
+	print("drain_f-100_s-8")
+	for itr in range(len(drain_100_8_cntr_)):
+		if drain_100_8_cntr_[itr] > 0:
+			drain_100_8_avg_pkt_lat.append(float(drain_100_8_pkt_lat[itr]/drain_100_8_cntr_[itr]))
+			drain_100_8_avg_thrpt.append((float(drain_100_8_thrpt[itr]) / drain_100_8_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_100_8_cntr_[itr], drain_100_8_pkt_lat[itr], drain_100_8_thrpt[itr], np.var(drain_100_8_lat_matrix[itr]), drain_100_8_avg_pkt_lat[itr], drain_100_8_avg_thrpt[itr]))
+
+	for itr in range(len(drain_100_8_avg_pkt_lat)):
+		if drain_100_8_avg_pkt_lat[itr] > (3 * drain_100_8_avg_pkt_lat[0]):
+			print("saturation throughput for d-100-s-8: {0:1.2f}".format((itr + 1) * 0.02))
+			break
+
+	sat_thrpt = drain_100_8_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
+	# print("drain-100-8 norm_sat_thrpt: {0:f}".format(norm_sat_thrpt))
+	#################################################################################################
+
+	drain_1000_1_cntr_ = [0] * 21
+	drain_1000_1_pkt_lat = [0] * 21
+	drain_1000_1_avg_pkt_lat = [] #make it empty
+	drain_1000_1_thrpt = [0] * 21
+	drain_1000_1_avg_thrpt = []
+	drain_1000_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 1000, 1, num_vc, num_fault, drain_1000_1_cntr_, drain_1000_1_pkt_lat, drain_1000_1_thrpt, drain_1000_1_lat_matrix)
+	print("drain_f-1000_s-1")
+	for itr in range(len(drain_1000_1_cntr_)):
+		if drain_1000_1_cntr_[itr] > 0:
+			drain_1000_1_avg_pkt_lat.append(float(drain_1000_1_pkt_lat[itr]/drain_1000_1_cntr_[itr]))
+			drain_1000_1_avg_thrpt.append((float(drain_1000_1_thrpt[itr]) / drain_1000_1_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_1000_1_cntr_[itr], drain_1000_1_pkt_lat[itr], drain_1000_1_thrpt[itr], np.var(drain_1000_1_lat_matrix[itr]), drain_1000_1_avg_pkt_lat[itr], drain_1000_1_avg_thrpt[itr]))
+
+	for itr in range(len(drain_1000_1_avg_pkt_lat)):
+		if drain_1000_1_avg_pkt_lat[itr] > (3 * drain_1000_1_avg_pkt_lat[0]):
+			print("saturation throughput for d-1000-s-1: {0:1.2f}".format((itr + 1) * 0.02))
+			break
+
+	sat_thrpt = drain_1000_1_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
+	# print("drain-1000-1 norm_sat_thrpt: {0:f}".format(norm_sat_thrpt))
+	#################################################################################################
+
+	drain_1000_8_cntr_ = [0] * 21
+	drain_1000_8_pkt_lat = [0] * 21
+	drain_1000_8_avg_pkt_lat = [] #make it empty
+	drain_1000_8_thrpt = [0] * 21
+	drain_1000_8_avg_thrpt = []
+	drain_1000_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 1000, 8, num_vc, num_fault, drain_1000_8_cntr_, drain_1000_8_pkt_lat, drain_1000_8_thrpt, drain_1000_8_lat_matrix)
+	print("drain_f-1000_s-8")
+	for itr in range(len(drain_1000_8_cntr_)):
+		if drain_1000_8_cntr_[itr] > 0:
+			drain_1000_8_avg_pkt_lat.append(float(drain_1000_8_pkt_lat[itr]/drain_1000_8_cntr_[itr]))
+			drain_1000_8_avg_thrpt.append((float(drain_1000_8_thrpt[itr]) / drain_1000_8_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_1000_8_cntr_[itr], drain_1000_8_pkt_lat[itr], drain_1000_8_thrpt[itr], np.var(drain_1000_8_lat_matrix[itr]), drain_1000_8_avg_pkt_lat[itr], drain_1000_8_avg_thrpt[itr]))
+
+	for itr in range(len(drain_1000_8_avg_pkt_lat)):
+		if drain_1000_8_avg_pkt_lat[itr] > (3 * drain_1000_8_avg_pkt_lat[0]):
+			print("saturation throughput for d-1000-s-8: {0:1.2f}".format((itr + 1) * 0.02))
+			break
+
+	sat_thrpt = drain_1000_8_avg_thrpt[itr]
+	norm_sat_thrpt = float(sat_thrpt) / 6400000
+	# print("drain-1000-8 norm_sat_thrpt: {0:f}".format(norm_sat_thrpt))
+	sys.exit(0)
+	#################################################################################################
+
+	drain_5000_1_cntr_ = [0] * 21
+	drain_5000_1_pkt_lat = [0] * 21
+	drain_5000_1_avg_pkt_lat = [] #make it empty
+	drain_5000_1_thrpt = [0] * 21
+	drain_5000_1_avg_thrpt = []
+	drain_5000_1_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 5000, 1, num_vc, num_fault, drain_5000_1_cntr_, drain_5000_1_pkt_lat, drain_5000_1_thrpt, drain_5000_1_lat_matrix)
+	print("drain_f-5000_s-1")
+	for itr in range(len(drain_5000_1_cntr_)):
+		if drain_5000_1_cntr_[itr] > 0:
+			drain_5000_1_avg_pkt_lat.append(float(drain_5000_1_pkt_lat[itr]/drain_5000_1_cntr_[itr]))
+			drain_5000_1_avg_thrpt.append((float(drain_5000_1_thrpt[itr]) / drain_5000_1_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_5000_1_cntr_[itr], drain_5000_1_pkt_lat[itr], drain_5000_1_thrpt[itr], np.var(drain_5000_1_lat_matrix[itr]), drain_5000_1_avg_pkt_lat[itr], drain_5000_1_avg_thrpt[itr]))
+	#################################################################################################
+
+	drain_5000_8_cntr_ = [0] * 21
+	drain_5000_8_pkt_lat = [0] * 21
+	drain_5000_8_avg_pkt_lat = [] #make it empty
+	drain_5000_8_thrpt = [0] * 21
+	drain_5000_8_avg_thrpt = []
+	drain_5000_8_lat_matrix = [[] for i in range(21)] #TODO: is this correct?
+	#################################################################################################
+	drainSTAT(path, traffic_pattern, 5000, 8, num_vc, num_fault, drain_5000_8_cntr_, drain_5000_8_pkt_lat, drain_5000_8_thrpt, drain_5000_8_lat_matrix)
+	print("drain_f-5000_s-8")
+	for itr in range(len(drain_5000_8_cntr_)):
+		if drain_5000_8_cntr_[itr] > 0:
+			drain_5000_8_avg_pkt_lat.append(float(drain_5000_8_pkt_lat[itr]/drain_5000_8_cntr_[itr]))
+			drain_5000_8_avg_thrpt.append((float(drain_5000_8_thrpt[itr]) / drain_5000_8_cntr_[itr]))
+			# print("pkt_lat_cntr: {0:d} \t pkt_lat: {1:f} \t thrpt: {2:d} \t average_pkt_latency: {4:f} \t average_thrput: {5:f} \t latency_variance: {3:f}"
+			# 	  .format(drain_5000_8_cntr_[itr], drain_5000_8_pkt_lat[itr], drain_5000_8_thrpt[itr], np.var(drain_5000_8_lat_matrix[itr]), drain_5000_8_avg_pkt_lat[itr], drain_5000_8_avg_thrpt[itr]))
+	#################################################################################################
+
+	# print(*a, sep = ", ")
+	print("~~~~DONE~~~~~")
+	print("spin-256"),
+	for itr in spin_256_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-100_s-1"),
+	for itr in drain_100_1_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-100_s-8"),
+	for itr in drain_100_8_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-1000_s-1"),
+	for itr in drain_1000_1_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-1000_s-8"),
+	for itr in drain_1000_8_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-5000_s-1"),
+	for itr in drain_5000_1_avg_pkt_lat:
+		print itr,
+	print("")
+	print("drain_f-5000_s-8"),
+	for itr in drain_5000_8_avg_pkt_lat:
+		print itr,
+	print("")
+	print("~~~~AVG-THROUGH-PUT~~~~~")
+	print("spin-256"),
+	for itr in spin_256_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-100_s-1"),
+	for itr in drain_100_1_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-100_s-8"),
+	for itr in drain_100_8_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-1000_s-1"),
+	for itr in drain_1000_1_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-1000_s-8"),
+	for itr in drain_1000_8_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-5000_s-1"),
+	for itr in drain_5000_1_avg_thrpt:
+		print itr,
+	print("")
+	print("drain_f-5000_s-8"),
+	for itr in drain_5000_8_avg_thrpt:
+		print itr,

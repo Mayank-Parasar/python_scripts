@@ -320,9 +320,13 @@ elif (option.lower() == "avg_latency"):
             avg_flt_lat_drain1024.append(float(flt_lat_drain[itr] / cntr_[itr]))
 
     print avg_flt_lat_drain1024
+    print "length of avg_flt_lat_drain1024: ", len(avg_flt_lat_drain1024)
     for ii_ in range(len(avg_flt_lat_drain1024)):
-        if avg_flt_lat_drain1024[ii_] < avg_flt_lat_drain1024[ii_ - 1]:
-            break
+        if ii_ < (len(avg_flt_lat_drain1024) - 1):
+            if avg_flt_lat_drain1024[ii_] > (avg_flt_lat_drain1024[ii_ + 1] + 5):
+                break
+    print ii_
+
     avg_flt_lat_drain1024[ii_:] = [101] * (len(avg_flt_lat_drain1024) - ii_)
     print avg_flt_lat_drain1024
 
@@ -338,8 +342,9 @@ elif (option.lower() == "avg_latency"):
 
     print avg_flt_lat_drain128
     for ii_ in range(len(avg_flt_lat_drain128)):
-        if avg_flt_lat_drain128[ii_] < avg_flt_lat_drain128[ii_ - 1]:
-            break
+        if ii_ < (len(avg_flt_lat_drain128) - 1):
+            if avg_flt_lat_drain128[ii_] > (avg_flt_lat_drain128[ii_ + 1] + 5):
+                break
     avg_flt_lat_drain128[ii_:] = [101] * (len(avg_flt_lat_drain128) - ii_)
     print avg_flt_lat_drain128
 

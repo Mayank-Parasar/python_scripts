@@ -92,7 +92,7 @@ def plot6_line_graph(injr, y_val1_, y_val2_, y_val3_, y_val4_, y_val5_,
     ax.set_xlabel("Injection-rate (packets injected/node/cycle)")
     ax.set_ylabel("packets received/cycle/node")
     # ax.legend(loc=4)
-    ax.legend(loc=4, prop={'size': 12})
+    ax.legend(loc=0, prop={'size': 12})
 
     stri = "Traffic-" + str(traffic_) + "VC-" + str(vc_) + "fault-" + str(fault_)
     ax.set_title(stri)

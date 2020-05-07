@@ -1,2 +1,3 @@
 extract_stats/.idea/*
 .idea/
+cmake-build-debug/

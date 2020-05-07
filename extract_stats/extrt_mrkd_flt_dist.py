@@ -8,6 +8,8 @@ import subprocess
 import numpy as np
 import plot_thrpt
 import math
+import statistics
+# import try_stackedBarPlot
 from shlex import split
 
 
@@ -86,7 +88,7 @@ def extract_topology_avg_lat_eVC(path, traffic_pattern, eVC_, cntr_, num_fault, 
     else:
         assert (0)
     next_file = 0
-    print path
+    # print path
     for root, dirs, fnames in os.walk(path):
         for dir in dirs:
             if dir.endswith("_" + str(num_fault) + ".txt"):
@@ -139,7 +141,7 @@ def extract_topology_avg_lat_eVC(path, traffic_pattern, eVC_, cntr_, num_fault, 
                                                                                 next_file = 1
                                                                                 continue
 
-def extract_avg_lat_eVC(path, traffic_pattern, eVC_, cntr_,
+def extract_avg_lat_eVC(path, traffic_pattern, eVC_, eVC_min_, cntr_,
                         num_fault, vc_, ni_pol, listoflist):
     next_file = 0
     if ni_pol == "fcfs":
@@ -179,13 +181,18 @@ def extract_avg_lat_eVC(path, traffic_pattern, eVC_, cntr_,
                                                         if next_file == 1:
                                                             continue
                                                         line = line.rstrip()
-                                                        if option.lower() == "evc_avg_latency":
+                                                        if option.lower() == "evc_avg_latency" \
+                                                                or option.lower() == "avg_lat":
                                                             if "system.ruby.network.average_marked_pkt_latency " in line:
                                                                 lineOut = line.split()
                                                                 avg_pkt_lat = float(lineOut[1])
                                                                 eVC_[index] += float(avg_pkt_lat)
                                                                 tmp_list[index] = (float(avg_pkt_lat))
                                                                 cntr_[index] += 1
+                                                                if eVC_min_[index] == 0:
+                                                                	eVC_min_[index] = float(avg_pkt_lat)
+                                                                if eVC_min_[index] > float(avg_pkt_lat):
+                                                                	eVC_min_[index] = float(avg_pkt_lat)
                                                                 # print tmp_list
                                                         elif option.lower() == "evc-sat-thrpt":
                                                             if "system.ruby.network.average_packet_latency " in line:
@@ -200,9 +207,10 @@ def extract_avg_lat_eVC(path, traffic_pattern, eVC_, cntr_,
                                                                     next_file = 1
                                                                     continue
 # noinspection Duplicates
-def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
-                                   num_fault, vc_, freq, rot):
+def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, drain_min_, cntr_,
+                                   num_fault, vc_, freq, rot, stat_type = "none"):
     next_file = 0
+    prev_index = 0
     if option.lower() == "sweep" \
         or option.lower() == "sweep-sat-thrpt" \
         or option.lower() == "rot-sweep" \
@@ -210,7 +218,12 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
 		or option.lower() == "num-drain-sweep" \
 		or option.lower() == "avg-fwd-prg" \
 		or option.lower() == "avg-mis-route" \
-		or option.lower() == "avg-bubble-movement":
+		or option.lower() == "avg-bubble-movement" \
+        or option == "stackedPlot" \
+		or option.lower() == "avg_lat" \
+		or option.lower() == "average_latency" \
+        or option.lower() == "low_load" \
+        or option.lower() == "sat_thrpt":
         path = path + "/drain_micro2019_rslt/03-04-2019/DRAIN/simType-2/sweep/64c/DRAIN_escapeVC/uTurnCrossbar-1/"
     else:
         path = path + "/drain_micro2019_rslt/02-15-2019/DRAIN/64c/DRAIN_escapeVC/uTurnCrossbar-1/"
@@ -242,8 +255,17 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                         ijr_ = dir6.split('-')
                                                                         idx = float(ijr_[1])
                                                                         index = int(np.round(idx * 50.0 - 1.0))
+                                                                        if prev_index > index:
+                                                                            # print "index ", index,
+                                                                            # print "prev_index", prev_index
+                                                                            if option.lower() == "sat_thrpt":
+                                                                                # print file_path
+                                                                                # print os.listdir(path6)
+                                                                                drain_.append(prev_index)
                                                                         if index == 0:
+                                                                            # print file_path
                                                                             next_file = 0
+                                                                        prev_index = index
                                                                         with open(file_path, "r") as file:
                                                                             # print file_path
                                                                             for line in file:
@@ -253,14 +275,18 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                 if option.lower() == "avg_latency" \
                                                                                     or option.lower() == "sweep" \
                                                                                     or option.lower() == "rot-sweep" \
-                                                                                    or option.lower() == "period-rot-sweep":
-                                                                                    if "system.ruby.network.flit_forward_progress_per_drain " in line:
-                                                                                    # if "system.ruby.network.average_packet_latency " in line:
+                                                                                    or option.lower() == "period-rot-sweep" \
+                                                                                    or option.lower() == "avg_lat":
+                                                                                    if "system.ruby.network.average_marked_flt_latency " in line:
                                                                                         lineOut = line.split()
                                                                                         avg_pkt_lat = float(lineOut[1])
                                                                                         drain_[index] += float(
                                                                                             avg_pkt_lat)
                                                                                         cntr_[index] += 1
+                                                                                        if drain_min_[index] == 0:
+                                                                                        	drain_min_[index] = float(avg_pkt_lat)
+                                                                                        if drain_min_[index] > float(avg_pkt_lat):
+                                                                                        	drain_min_[index] = float(avg_pkt_lat)
                                                                                 elif option.lower() == "saturation-throughput" \
                                                                                         or option.lower() == "sweep-sat-thrpt" :
                                                                                     if "system.ruby.network.average_packet_latency " in line:
@@ -268,10 +294,6 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                         avg_pkt_lat = float(lineOut[1])
                                                                                         if avg_pkt_lat > 100.0:
                                                                                             drain_.append(idx)
-                                                                                            # print drain_,
-                                                                                            # print " "
-                                                                                            # print file_path,
-                                                                                            # print " "
                                                                                             next_file = 1
                                                                                             continue
                                                                                 elif option.lower() == "num-drain-sweep":
@@ -280,7 +302,8 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                         total_spin = int(lineOut[1])
                                                                                         drain_[index] += int(total_spin)
                                                                                         cntr_[index] += 1
-                                                                                elif option.lower() == "avg-fwd-prg":
+                                                                                elif option.lower() == "avg-fwd-prg" \
+                                                                                        or stat_type == "pkt_route":
                                                                                     if "system.ruby.network.flit_forward_progress_per_drain " in line:
                                                                                         lineOut = line.split()
                                                                                         fwd_prog = float(lineOut[1])
@@ -291,7 +314,8 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                         else:
                                                                                             drain_[index] += float(fwd_prog)
                                                                                             cntr_[index] += 1
-                                                                                elif option.lower() == "avg-mis-route":
+                                                                                elif option.lower() == "avg-mis-route" \
+                                                                                        or stat_type == "pkt_misroute":
                                                                                     if "system.ruby.network.flit_misroute_per_drain " in line:
                                                                                         lineOut = line.split()
                                                                                         avg_misroute = float(lineOut[1])
@@ -303,7 +327,8 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                             drain_[index] += float(
                                                                                                 avg_misroute)
                                                                                             cntr_[index] += 1
-                                                                                elif option.lower() == "avg-bubble-movement":
+                                                                                elif option.lower() == "avg-bubble-movement" \
+                                                                                        or stat_type == "bubble_movement":
                                                                                     if "system.ruby.network.bubble_movement_per_drain " in line:
                                                                                         lineOut = line.split()
                                                                                         bubble_movement = float(
@@ -316,11 +341,23 @@ def extract_topology_avg_lat_drain(path, traffic_pattern, drain_, cntr_,
                                                                                             drain_[index] += float(
                                                                                                 bubble_movement)
                                                                                             cntr_[index] += 1
+                                                                                elif option.lower() == "low_load":
+                                                                                    if "system.ruby.network.average_packet_latency " in line:
+                                                                                        lineOut = line.split()
+                                                                                        avg_pkt_lat = float(lineOut[1])
+                                                                                        if index == 0:
+                                                                                            drain_[0] += avg_pkt_lat
+                                                                                            cntr_[0] += 1
 
-def extract_topology_avg_lat_spin(path, traffic_pattern, spin_, cntr_,
+def extract_topology_avg_lat_spin(path, traffic_pattern, spin_, spin_min_, cntr_,
                                   num_fault, vc_, thresh):
     next_file = 0
-    path = path + "/drain_micro2019_rslt/SPIN/02-19-2019/"
+    if option.lower() == "spin_avg_lat" \
+    	or option.lower() == "avg_lat" \
+    	or option.lower() == "average_latency":
+        path = path + "/drain_micro2019_rslt/SPIN/simType-2/03-10-2019/"
+    else:
+        path = path + "/drain_micro2019_rslt/SPIN/02-19-2019/"
     for root, dirs, fnames in os.walk(path):
         for dir in dirs:
             if dir.lower() == traffic_pattern:
@@ -340,6 +377,7 @@ def extract_topology_avg_lat_spin(path, traffic_pattern, spin_, cntr_,
                                                     for root5, dirs5, fnames5 in os.walk(path5):
                                                         for dir5 in dirs5:
                                                             file_path = path5 + "/" + dir5 + "/stats.txt"
+                                                            # print file_path
                                                             ijr_ = dir5.split('-')
                                                             idx = float(ijr_[1])
                                                             index = int(np.round(idx * 50.0 - 1.0))
@@ -357,6 +395,17 @@ def extract_topology_avg_lat_spin(path, traffic_pattern, spin_, cntr_,
                                                                             avg_pkt_lat = float(lineOut[1])
                                                                             spin_[index] += float(avg_pkt_lat)
                                                                             cntr_[index] += 1
+                                                                    elif option.lower() == "spin_avg_lat" \
+                                                                            or option.lower() == "avg_lat":
+                                                                        if "system.ruby.network.average_marked_flt_latency " in line:
+                                                                            lineOut = line.split()
+                                                                            avg_pkt_lat = float(lineOut[1])
+                                                                            spin_[index] += float(avg_pkt_lat)
+                                                                            cntr_[index] += 1
+                                                                            if spin_min_[index] == 0:
+                                                                            	spin_min_[index] = float(avg_pkt_lat)
+                                                                            if spin_min_[index] > float(avg_pkt_lat):
+                                                                            	spin_min_[index] = float(avg_pkt_lat)
                                                                     elif option.lower() == "saturation-throughput":
                                                                         if "system.ruby.network.average_packet_latency " in line:
                                                                             lineOut = line.split()
@@ -420,7 +469,7 @@ option = sys.argv[4]
 
 freq = int(sys.argv[5])
 rot = int(sys.argv[6])
-thresh = int(sys.argv[7])
+thresh = int(sys.argv[7]) # used for SPIN
 
 marked_flit = int(sys.argv[5])  # FIXME
 ### lambda function ###
@@ -446,65 +495,33 @@ elif (option.lower() == "marked_latency"):
     extract_flt_avg_lat(path, traffic_pattern, flt_latency, inj_, num_fault, vc_, marked_flit)
     for x, y in zip(inj_, flt_latency):
         print x, y
-
-elif (option.lower() == "avg_latency"):
-    extract_topology_avg_lat_eVC(path, traffic_pattern, flt_lat, cntr_, num_fault, vc_, "rr")
+############################
+elif (option.lower() == "spin_avg_lat"):
+    #### thresh-16 ####
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    avg_flt_lat_spin16 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, cntr_,
+                                  num_fault, vc_, 16)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
-            avg_pkt_lat_eVC_rr.append(float(flt_lat[itr] / cntr_[itr]))
-    for lat_ in avg_pkt_lat_eVC_rr:
+            avg_flt_lat_spin16.append(float(flt_lat_spin[itr] / cntr_[itr]))
+    for lat_ in avg_flt_lat_spin16:
         print lat_,
-    ###############################################
     print " "
+    #### thresh-64 ####
     cntr_ = [0] * 25  # to average out the sum for given injection rate
-    flt_lat = [0] * 25  # flit latancy for DRAIN
-    extract_topology_avg_lat_eVC(path, traffic_pattern, flt_lat, cntr_, num_fault, vc_, "fcfs")
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    avg_flt_lat_spin64 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, cntr_,
+                                  num_fault, vc_, 64)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
-            avg_pkt_lat_eVC_fcfs.append(float(flt_lat[itr] / cntr_[itr]))
-    for lat_ in avg_pkt_lat_eVC_fcfs:
+            avg_flt_lat_spin64.append(float(flt_lat_spin[itr] / cntr_[itr]))
+    for lat_ in avg_flt_lat_spin64:
         print lat_,
-    ###############################################
-    print" "
-    cntr_ = [0] * 25  # to average out the sum for given injection rate
-    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
-    avg_flt_lat_drain1024 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, freq, rot)
-    for itr in range(len(cntr_)):
-        if cntr_[itr] > 0:
-            avg_flt_lat_drain1024.append(float(flt_lat_drain[itr] / cntr_[itr]))
-
-    print avg_flt_lat_drain1024
-    print "length of avg_flt_lat_drain1024: ", len(avg_flt_lat_drain1024)
-    for ii_ in range(len(avg_flt_lat_drain1024)):
-        if ii_ < (len(avg_flt_lat_drain1024) - 1):
-            if avg_flt_lat_drain1024[ii_] > (avg_flt_lat_drain1024[ii_ + 1] + 5):
-                break
-    print ii_
-
-    avg_flt_lat_drain1024[ii_:] = [101] * (len(avg_flt_lat_drain1024) - ii_)
-    print avg_flt_lat_drain1024
-
-    ################################################
-    print" "
-    cntr_ = [0] * 25  # to average out the sum for given injection rate
-    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
-    avg_flt_lat_drain128 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 128, rot)
-    for itr in range(len(cntr_)):
-        if cntr_[itr] > 0:
-            avg_flt_lat_drain128.append(float(flt_lat_drain[itr] / cntr_[itr]))
-
-    print avg_flt_lat_drain128
-    for ii_ in range(len(avg_flt_lat_drain128)):
-        if ii_ < (len(avg_flt_lat_drain128) - 1):
-            if avg_flt_lat_drain128[ii_] > (avg_flt_lat_drain128[ii_ + 1] + 5):
-                break
-    avg_flt_lat_drain128[ii_:] = [101] * (len(avg_flt_lat_drain128) - ii_)
-    print avg_flt_lat_drain128
-
-    ################################################
     print " "
+    #### thresh-128 ####
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_spin = [0] * 25  # flit latency for SPIN
     avg_flt_lat_spin128 = []  # empty list
@@ -515,8 +532,8 @@ elif (option.lower() == "avg_latency"):
             avg_flt_lat_spin128.append(float(flt_lat_spin[itr] / cntr_[itr]))
     for lat_ in avg_flt_lat_spin128:
         print lat_,
-    ################################################
     print " "
+    #### thresh-1024 ####
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_spin = [0] * 25  # flit latency for SPIN
     avg_flt_lat_spin1024 = []  # empty list
@@ -527,44 +544,176 @@ elif (option.lower() == "avg_latency"):
             avg_flt_lat_spin1024.append(float(flt_lat_spin[itr] / cntr_[itr]))
     for lat_ in avg_flt_lat_spin1024:
         print lat_,
-
     print " "
-    print "old length of avg_flt_lat_drain_: ", len(avg_flt_lat_drain1024)
+    #### thresh-4096 ####
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    avg_flt_lat_spin4096 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, cntr_,
+                                  num_fault, vc_, 4096)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_spin4096.append(float(flt_lat_spin[itr] / cntr_[itr]))
+    for lat_ in avg_flt_lat_spin4096:
+        print lat_,
+    print " "
+    #### thresh-65536 ####
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    avg_flt_lat_spin65536 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, cntr_,
+                                  num_fault, vc_, 65536)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_spin65536.append(float(flt_lat_spin[itr] / cntr_[itr]))
+    for lat_ in avg_flt_lat_spin65536:
+        print lat_,
+    print " "
+    # plotting Graph here
+    # plot_thrpt.plot1_line_graph(avg_flt_lat_spin128, vc_, traffic_pattern, num_fault)
+    plot_thrpt.plot6_line_graph_sweep("spin-16", avg_flt_lat_spin16, "spin-64", avg_flt_lat_spin64,
+                                      "spin-128", avg_flt_lat_spin128, "spin-1024", avg_flt_lat_spin1024,
+                                      "spin-4096", avg_flt_lat_spin4096, "spin-65536", avg_flt_lat_spin65536,
+                                      vc_, traffic_pattern, num_fault)
+############################
+elif option.lower() == "avg_latency" \
+	or option.lower() == "avg_lat":
+    if option.lower() == "avg_latency":
+        flit_lat_eVC_rr = [0] * 25
+        cntr_ = [0] * 25  # to average out the sum for given injection rate
+        extract_topology_avg_lat_eVC(path, traffic_pattern, flit_lat_eVC_rr, cntr_, num_fault, vc_, "rr")
+        for itr in range(len(cntr_)):
+            if cntr_[itr] > 0:
+                avg_pkt_lat_eVC_rr.append(float(flit_lat_eVC_rr[itr] / cntr_[itr]))
+        for lat_ in avg_pkt_lat_eVC_rr:
+            print lat_,
+        ###############################################
+        print " "
+        cntr_ = [0] * 25  # to average out the sum for given injection rate
+        flt_lat = [0] * 25  # flit latancy for DRAIN
+        extract_topology_avg_lat_eVC(path, traffic_pattern, flt_lat, cntr_, num_fault, vc_, "fcfs")
+        for itr in range(len(cntr_)):
+            if cntr_[itr] > 0:
+                avg_pkt_lat_eVC_fcfs.append(float(flt_lat[itr] / cntr_[itr]))
+        for lat_ in avg_pkt_lat_eVC_fcfs:
+            print lat_,
+    elif option.lower() == "avg_lat":
+        #### average latency for escapeVC ####
+        cntr_ = [0] * 25  # to average out the sum for given injection rate
+        flt_lat_eVC = [0] * 25  # flit latancy
+        flt_lat_min_eVC = [0] * 25 # minimum flit latency
+        listoflist_0 = []
+        avg_pkt_lat_eVC_fcfs = []
+        extract_avg_lat_eVC(path, traffic_pattern, flt_lat_eVC, flt_lat_min_eVC,
+        					cntr_, num_fault, vc_, "fcfs", listoflist_0)
+        for itr in range(len(cntr_)):
+            if cntr_[itr] > 0:
+                avg_pkt_lat_eVC_fcfs.append(float(flt_lat_eVC[itr] / cntr_[itr]))
+        for lat_ in avg_pkt_lat_eVC_fcfs:
+            print lat_,
+    else:
+        assert(0)
+    ##############################################
+    print " "
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flit_lat_min_drain128 = [0] * 25  # minimum flit latency for DRAIN
+    avg_flt_lat_drain128 = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flit_lat_min_drain128,
+    							 cntr_, num_fault, vc_, 128, 1)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_drain128.append(float(flt_lat_drain[itr] / cntr_[itr]))
 
-    max_len = max(len(avg_pkt_lat_eVC_rr), len(avg_flt_lat_drain1024),
-                  len(avg_flt_lat_drain128),
-                  len(avg_flt_lat_spin128), len(avg_pkt_lat_eVC_fcfs),
-                  len(avg_flt_lat_spin1024))
+    print avg_flt_lat_drain128
+    print "length of avg_flt_lat_drain128: ", len(avg_flt_lat_drain128)
+
+    ################################################
+    print" "
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flit_lat_min_drain4096 = [0] * 25  # minimum flit latency for DRAIN
+    avg_flt_lat_drain4096 = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flit_lat_min_drain4096,
+    								cntr_, num_fault, vc_, 4096, 1)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_drain4096.append(float(flt_lat_drain[itr] / cntr_[itr]))
+
+    print avg_flt_lat_drain4096
+    print "length of avg_flt_lat_drain4096: ", len(avg_flt_lat_drain4096)
+
+    ################################################
+    print " "
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    flit_lat_min_spin128 = [0] * 25 # minimum flit latency for SPIN
+    avg_flt_lat_spin128 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, flit_lat_min_spin128,
+    								cntr_, num_fault, vc_, 128)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_spin128.append(float(flt_lat_spin[itr] / cntr_[itr]))
+
+    print avg_flt_lat_spin128
+    print "length of avg_flt_lat_spin128: ", len(avg_flt_lat_spin128)
+    ################################################
+    print " "
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_spin = [0] * 25  # flit latency for SPIN
+    flit_lat_min_spin4096 = [0] * 25 # minimum flit latency for SPIN
+    avg_flt_lat_spin4096 = []  # empty list
+    extract_topology_avg_lat_spin(path, traffic_pattern, flt_lat_spin, flit_lat_min_spin4096,
+    								cntr_, num_fault, vc_, 4096)
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_flt_lat_spin4096.append(float(flt_lat_spin[itr] / cntr_[itr]))
+
+
+    print avg_flt_lat_spin4096
+    print "length of avg_flt_lat_spin4096: ", len(avg_flt_lat_spin4096)
+
+
+    if option.lower() == "avg_latency":
+        max_len = max(len(avg_pkt_lat_eVC_rr), len(avg_flt_lat_drain1024),
+                      len(avg_flt_lat_drain128),
+                      len(avg_flt_lat_spin128), len(avg_pkt_lat_eVC_fcfs),
+                      len(avg_flt_lat_spin1024))
+    elif option.lower() == "avg_lat":
+        max_len = max(len(avg_pkt_lat_eVC_fcfs), len(avg_flt_lat_drain4096),
+                      len(avg_flt_lat_drain128),
+                      len(avg_flt_lat_spin128), len(avg_flt_lat_spin4096))
     print " "
     print "Max length: ", max_len
     print " "
                 ########### Code for Length Normalization ###########
-    if len(avg_pkt_lat_eVC_rr) < max_len:
-        avg_pkt_lat_eVC_rr.extend([9999] * (max_len - len(avg_pkt_lat_eVC_rr)))
-    if len(avg_pkt_lat_eVC_fcfs) < max_len:
-        avg_pkt_lat_eVC_fcfs.extend([9999] * (max_len - len(avg_pkt_lat_eVC_fcfs)))
-    if len(avg_flt_lat_spin128) < max_len:
-        avg_flt_lat_spin128.extend([9999] * (max_len - len(avg_flt_lat_spin128)))
-    if len(avg_flt_lat_spin1024) < max_len:
-        avg_flt_lat_spin1024.extend([9999] * (max_len - len(avg_flt_lat_spin1024)))
-    if len(avg_flt_lat_drain128) < max_len:
-        avg_flt_lat_drain128.extend([9999] * (max_len - len(avg_flt_lat_drain128)))
-    if len(avg_flt_lat_drain1024) < max_len:
-        avg_flt_lat_drain1024.extend([9999] * (max_len - len(avg_flt_lat_drain1024)))
+    if option.lower() == "avg_latency":
+        if len(avg_pkt_lat_eVC_rr) < max_len:
+            avg_pkt_lat_eVC_rr.extend([9999] * (max_len - len(avg_pkt_lat_eVC_rr)))
+        if len(avg_pkt_lat_eVC_fcfs) < max_len:
+            avg_pkt_lat_eVC_fcfs.extend([9999] * (max_len - len(avg_pkt_lat_eVC_fcfs)))
+        if len(avg_flt_lat_spin128) < max_len:
+            avg_flt_lat_spin128.extend([9999] * (max_len - len(avg_flt_lat_spin128)))
+        if len(avg_flt_lat_spin1024) < max_len:
+            avg_flt_lat_spin1024.extend([9999] * (max_len - len(avg_flt_lat_spin1024)))
+        if len(avg_flt_lat_drain128) < max_len:
+            avg_flt_lat_drain128.extend([9999] * (max_len - len(avg_flt_lat_drain128)))
+        if len(avg_flt_lat_drain1024) < max_len:
+            avg_flt_lat_drain1024.extend([9999] * (max_len - len(avg_flt_lat_drain1024)))
 
-    print avg_flt_lat_drain1024,
-    print " "
-    print "new length of avg_flt_lat_drain_: ", len(avg_flt_lat_drain1024)
-    print " "
+        print avg_flt_lat_drain1024,
+        print " "
+        print "new length of avg_flt_lat_drain_: ", len(avg_flt_lat_drain1024)
+        print " "
 
-    # injr = np.linspace(0.02, 0.38, 19)
-    injr = np.linspace(0.02, 0.38, 19)
-    avg_pkt_lat_eVC_rr_ = np.array(avg_pkt_lat_eVC_rr)
-    avg_pkt_lat_eVC_fcfs_ = np.array(avg_pkt_lat_eVC_fcfs)
-    avg_flt_lat_spin128_ = np.array(avg_flt_lat_spin128)
-    avg_flt_lat_spin1024_ = np.array(avg_flt_lat_spin1024)
-    avg_flt_lat_drain128_ = np.array(avg_flt_lat_drain128)
-    avg_flt_lat_drain1024_ = np.array(avg_flt_lat_drain1024)
+        # injr = np.linspace(0.02, 0.38, 19)
+        injr = np.linspace(0.02, 0.38, 19)
+        avg_pkt_lat_eVC_rr_ = np.array(avg_pkt_lat_eVC_rr)
+        avg_pkt_lat_eVC_fcfs_ = np.array(avg_pkt_lat_eVC_fcfs)
+        avg_flt_lat_spin128_ = np.array(avg_flt_lat_spin128)
+        avg_flt_lat_spin1024_ = np.array(avg_flt_lat_spin1024)
+        avg_flt_lat_drain128_ = np.array(avg_flt_lat_drain128)
+        avg_flt_lat_drain1024_ = np.array(avg_flt_lat_drain1024)
 
     # NOTE: Cautious about order of parameter you ae passing to plot function
     # and what label you are using for those parameters in the plot legend
@@ -573,11 +722,29 @@ elif (option.lower() == "avg_latency"):
     #                             avg_flt_lat_spin128_, avg_flt_lat_spin1024_,
     #                             avg_flt_lat_drain1024_,
     #                             vc_, traffic_pattern, num_fault)
-    plot_thrpt.plot6_line_graph(injr, avg_pkt_lat_eVC_rr_, avg_pkt_lat_eVC_fcfs_,
-                                avg_flt_lat_spin128_, avg_flt_lat_spin1024_,
-                                avg_flt_lat_drain128_, avg_flt_lat_drain1024_,
-                                vc_, traffic_pattern, num_fault)
-    #######################################################
+        plot_thrpt.plot6_line_graph(injr, avg_pkt_lat_eVC_rr_, avg_pkt_lat_eVC_fcfs_,
+                                    avg_flt_lat_spin128_, avg_flt_lat_spin1024_,
+                                    avg_flt_lat_drain128_, avg_flt_lat_drain1024_,
+                                    vc_, traffic_pattern, num_fault)
+    elif option.lower() == "avg_lat":
+        print "flt_lat_min_eVC: ", np.trim_zeros(flt_lat_min_eVC)
+        print "flit_lat_min_drain128: ", np.trim_zeros(flit_lat_min_drain128)
+        print "flit_lat_min_drain4096: ", np.trim_zeros(flit_lat_min_drain4096)
+        print "flit_lat_min_spin128: ", np.trim_zeros(flit_lat_min_spin128)
+        print "flit_lat_min_spin4096: ", np.trim_zeros(flit_lat_min_spin4096)
+        # plot_thrpt.plot5_line_graph( "escapeVC(fcfs)", avg_pkt_lat_eVC_fcfs,
+        #                             "spin-128", avg_flt_lat_spin128,
+        #                             "spin-4096", avg_flt_lat_spin4096,
+        #                             "drain-128", avg_flt_lat_drain128,
+        #                             "drain-4096", avg_flt_lat_drain4096,
+        #                             vc_, traffic_pattern, num_fault)
+        plot_thrpt.plot5_line_graph("escapeVC(fcfs)", np.trim_zeros(flt_lat_min_eVC),
+                                    "spin-128", np.trim_zeros(flit_lat_min_spin128),
+                                    "spin-4096", np.trim_zeros(flit_lat_min_spin4096),
+                                    "drain-128", np.trim_zeros(flit_lat_min_drain128),
+                                    "drain-4096", np.trim_zeros(flit_lat_min_drain4096),
+                                    vc_, traffic_pattern, num_fault)
+  #######################################################
 elif (option.lower() == "saturation-throughput"):
     sat_thrpt_eVC_rr = []
     extract_topology_avg_lat_eVC(path, traffic_pattern, sat_thrpt_eVC_rr, cntr_,
@@ -586,18 +753,22 @@ elif (option.lower() == "saturation-throughput"):
     extract_topology_avg_lat_eVC(path, traffic_pattern, sat_thrpt_eVC_fcfs, cntr_,
                                  num_fault, vc_, "fcfs")
     sat_thrpt_drain128 = []
-    extract_topology_avg_lat_drain(path, traffic_pattern, sat_thrpt_drain128, cntr_,
-                                   num_fault, vc_, 128, rot)
+    min_lat_drain128 = []
+    extract_topology_avg_lat_drain(path, traffic_pattern, sat_thrpt_drain128, min_lat_drain128,
+                                   cntr_, num_fault, vc_, 128, rot)
     sat_thrpt_drain1024 = []
-    extract_topology_avg_lat_drain(path, traffic_pattern, sat_thrpt_drain1024, cntr_,
-                                   num_fault, vc_, freq, rot)
+    min_lat_drain1024 = []
+    extract_topology_avg_lat_drain(path, traffic_pattern, sat_thrpt_drain1024, min_lat_drain1024,
+                                   cntr_, num_fault, vc_, freq, rot)
 
     sat_thrpt_spin128 = []
-    extract_topology_avg_lat_spin(path, traffic_pattern, sat_thrpt_spin128, cntr_,
-                                  num_fault, vc_, 128)
+    min_lat_spin128 = []
+    extract_topology_avg_lat_spin(path, traffic_pattern, sat_thrpt_spin128, min_lat_spin128,
+                                  cntr_, num_fault, vc_, 128)
     sat_thrpt_spin1024 = []
-    extract_topology_avg_lat_spin(path, traffic_pattern, sat_thrpt_spin1024, cntr_,
-                                  num_fault, vc_, 1024)
+    min_lat_spin1024 = []
+    extract_topology_avg_lat_spin(path, traffic_pattern, sat_thrpt_spin1024, min_lat_spin1024,
+                                  cntr_, num_fault, vc_, 1024)
 
     sat_variance = [] # empty list to plot saturation
                       # variance
@@ -679,11 +850,13 @@ elif (option.lower() == "saturation-throughput"):
     plot_thrpt.plot6_bar_graph(sat_variance_, vc_, traffic_pattern, num_fault)
     #################################################################
 elif (option.lower() == "sweep"):
-     ### Freq-16 ###
+     ### Period-16 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain16 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain16 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 16, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain16,
+                                   cntr_, num_fault, vc_, 16, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain16.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -700,11 +873,13 @@ elif (option.lower() == "sweep"):
     # avg_flt_lat_drain16[(ii_ + 1):] = [101] * (len(avg_flt_lat_drain16) - ii_)
     # print avg_flt_lat_drain16
 
-    ### Freq-64 ###
+    ### Period-64 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain64 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain64 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 64, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain64,
+                                   cntr_, num_fault, vc_, 64, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain64.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -721,11 +896,13 @@ elif (option.lower() == "sweep"):
     # avg_flt_lat_drain64[(ii_ + 1):] = [101] * (len(avg_flt_lat_drain64) - ii_)
     # print avg_flt_lat_drain64
 
-    ### Freq-128 ###
+    ### Period-128 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain128 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain128 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 128, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain128,
+                                   cntr_, num_fault, vc_, 128, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain128.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -742,11 +919,13 @@ elif (option.lower() == "sweep"):
     # avg_flt_lat_drain128[(ii_ + 1):] = [101] * (len(avg_flt_lat_drain128) - ii_)
     # print avg_flt_lat_drain128
 
-    ### Freq-1024 ###
+    ### Period-1024 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain1024 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain1024 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 1024, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain1024,
+                                   cntr_, num_fault, vc_, 1024, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain1024.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -763,11 +942,13 @@ elif (option.lower() == "sweep"):
     # avg_flt_lat_drain1024[(ii_ + 1):] = [101] * (len(avg_flt_lat_drain1024) - ii_)
     # print avg_flt_lat_drain1024
 
-    ### Freq-4096 ###
+    ### Period-4096 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain4096 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain4096 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 4096, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain4096,
+                                   cntr_, num_fault, vc_, 4096, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain4096.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -784,11 +965,43 @@ elif (option.lower() == "sweep"):
     # avg_flt_lat_drain4096[(ii_ + 1):] = [101] * (len(avg_flt_lat_drain4096) - ii_)
     # print avg_flt_lat_drain4096
 
-    ### Freq-65536 ###
+    ### Period-16384 ###
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain16384 = [0] * 25  # minimum flit latency for DRAIN
+    avg_flt_lat_drain16384 = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain16384,
+                                cntr_, num_fault, vc_, 16384, rot)
+
+    for itr in range(len(cntr_)):
+     if cntr_[itr] > 0:
+         avg_flt_lat_drain16384.append(float(flt_lat_drain[itr] / cntr_[itr]))
+
+    print avg_flt_lat_drain16384
+    print "length of avg_flt_lat_drain16384: ", len(avg_flt_lat_drain16384)
+
+    ### Period-32768 ###
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain32768 = [0] * 25  # minimum flit latency for DRAIN
+    avg_flt_lat_drain32768 = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain32768,
+                                cntr_, num_fault, vc_, 32768, rot)
+
+    for itr in range(len(cntr_)):
+     if cntr_[itr] > 0:
+         avg_flt_lat_drain32768.append(float(flt_lat_drain[itr] / cntr_[itr]))
+
+    print avg_flt_lat_drain32768
+    print "length of avg_flt_lat_drain32768: ", len(avg_flt_lat_drain32768)
+
+    ### Period-65536 ###
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain65536 = [0] * 25 # minimum flit latency for DRAIN
     avg_flt_lat_drain65536 = []  # empty list
-    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, 65536, rot)
+    extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, flt_lat_min_drain65536,
+                                   cntr_, num_fault, vc_, 65536, rot)
     for itr in range(len(cntr_)):
         if cntr_[itr] > 0:
             avg_flt_lat_drain65536.append(float(flt_lat_drain[itr] / cntr_[itr]))
@@ -837,11 +1050,80 @@ elif (option.lower() == "sweep"):
     avg_flt_lat_drain65536_ = np.array(avg_flt_lat_drain65536)
 
 
-    plot_thrpt.plot6_line_graph_sweep(injr, avg_flt_lat_drain16_, avg_flt_lat_drain64_,
-                                avg_flt_lat_drain128_, avg_flt_lat_drain1024_,
-                                avg_flt_lat_drain4096_, avg_flt_lat_drain65536_,
-                                vc_, traffic_pattern, num_fault, rot)
+    # plot_thrpt.plot6_line_graph_sweep( "DRAIN-16", avg_flt_lat_drain16_, "DRAIN-64", avg_flt_lat_drain64_,
+    #                             "DRAIN-128" ,avg_flt_lat_drain128_, "DRAIN-1024", avg_flt_lat_drain1024_,
+    #                             "DRAIN-4096", avg_flt_lat_drain4096_, "DRAIN-65536", avg_flt_lat_drain65536_,
+    #                             vc_, traffic_pattern, num_fault, rot)
+
+    # plot_thrpt.plot6_line_graph_sweep("DRAIN-16", np.trim_zeros(flt_lat_min_drain16),
+    #                                   "DRAIN-64", np.trim_zeros(flt_lat_min_drain64),
+    #                                     "DRAIN-128", np.trim_zeros(flt_lat_min_drain128),
+    #                                     "DRAIN-1024", np.trim_zeros(flt_lat_min_drain1024),
+    #                                     "DRAIN-4096", np.trim_zeros(flt_lat_min_drain4096),
+    #                                     "DRAIN-65536", np.trim_zeros(flt_lat_min_drain65536),
+    #                                     vc_, traffic_pattern, num_fault, rot)
+    plot_thrpt.plot7_line_graph_sweep("DRAIN-16", np.trim_zeros(flt_lat_min_drain16),
+                                    "DRAIN-64", np.trim_zeros(flt_lat_min_drain64),
+                                    "DRAIN-128", np.trim_zeros(flt_lat_min_drain128),
+                                    "DRAIN-1024", np.trim_zeros(flt_lat_min_drain1024),
+                                    "DRAIN-4096", np.trim_zeros(flt_lat_min_drain4096),
+                                    "DRAIN-16384", np.trim_zeros(flt_lat_min_drain16384),
+                                    "DRAIN-32768", np.trim_zeros(flt_lat_min_drain32768),
+                                    vc_, traffic_pattern, num_fault, rot)
     #################################################################
+elif (option == "stackedPlot"):
+	##############
+    print "num_fault: ", num_fault
+    ring_size = int(224 - 2*(num_fault))
+    print "DRAIN ring size: ", ring_size
+
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    pkt_misroute_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain1024 = [0] * 25  # flit latancy for DRAIN
+    avg_pkt_misroute = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, pkt_misroute_drain, flt_lat_min_drain1024,
+                                        cntr_, num_fault, vc_, freq, rot, "pkt_misroute")
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_pkt_misroute.append(float(pkt_misroute_drain[itr] / cntr_[itr]))
+
+    print avg_pkt_misroute
+    avg_pkt_misroute[:] = [x * 100 / ring_size for x in avg_pkt_misroute]
+    print avg_pkt_misroute
+    print "length of avg_pkt_misroute: ", len(avg_pkt_misroute)
+    ####
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    pkt_route_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain1024 = [0] * 25  # flit latancy for DRAIN
+    avg_pkt_route = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, pkt_route_drain, flt_lat_min_drain1024,
+                                        cntr_, num_fault, vc_, freq, rot, "pkt_route")
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_pkt_route.append(float(pkt_route_drain[itr] / cntr_[itr]))
+
+    print avg_pkt_route
+    avg_pkt_route[:] = [x * 100 / ring_size for x in avg_pkt_route]
+    print avg_pkt_route
+    print "length of avg_pkt_route: ", len(avg_pkt_route)
+    ####
+    cntr_ = [0] * 25  # to average out the sum for given injection rate
+    bubble_movement_drain = [0] * 25  # flit latancy for DRAIN
+    flt_lat_min_drain1024 = [0] * 25  # flit latancy for DRAIN
+    avg_bubble_movement = []  # empty list
+    extract_topology_avg_lat_drain(path, traffic_pattern, bubble_movement_drain, flt_lat_min_drain1024,
+                                        cntr_, num_fault, vc_, freq, rot, "bubble_movement")
+    for itr in range(len(cntr_)):
+        if cntr_[itr] > 0:
+            avg_bubble_movement.append(float(bubble_movement_drain[itr] / cntr_[itr]))
+
+    print avg_bubble_movement
+    avg_bubble_movement[:] = [x * 100 / ring_size for x in avg_bubble_movement]
+    print avg_bubble_movement
+    print "length of avg_bubble_movement: ", len(avg_bubble_movement)
+    plot_thrpt.stackedBarPlot(avg_bubble_movement, avg_pkt_route, avg_pkt_misroute,
+                              vc_, traffic_pattern, num_fault, rot, freq )
+    ##################################################################
 elif option.lower() == "period-rot-sweep" \
 	or option.lower() == "num-drain-sweep" \
 	or option.lower() == "avg-fwd-prg" \
@@ -1166,6 +1448,7 @@ elif (option.lower() == "rot-sweep"):
 	#### Rot-1 ####
     cntr_ = [0] * 25  # to average out the sum for given injection rate
     flt_lat_drain = [0] * 25  # flit latancy for DRAIN
+
     avg_flt_lat_drainFreq_1 = []  # empty list
     extract_topology_avg_lat_drain(path, traffic_pattern, flt_lat_drain, cntr_, num_fault, vc_, freq, 1)
     for itr in range(len(cntr_)):
@@ -1423,6 +1706,113 @@ elif (option.lower() == "marked_histogram"):
 
 elif (option.lower() == "average_hops"):
     pass
+elif option.lower() == "swap":
+    pass
+elif option.lower() == "low_load":
+    cntr_ = [0]
+    stat_=[0]
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 16, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 64, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 128, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 1024, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 4096, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 16384, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 32768, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+    ##################
+    cntr_ = [0]
+    stat_=[0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 65536, rot, "low_load")
+    print float(stat_[0]) / cntr_[0],
+elif option.lower() == "sat_thrpt":
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 16, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 64, rot, "low_load")
+    # print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 128, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 1024, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 4096, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 16384, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 32768, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
+    ###################
+    cntr_ = [0]
+    stat_ = []
+    dummy = [0]
+    extract_topology_avg_lat_drain(path, traffic_pattern, stat_, dummy, cntr_,
+                                   num_fault, vc_, 65536, rot, "low_load")
+    print (statistics.mean(stat_) * float(0.02) + 0.02),
 else:
     print option
     print("wrong option!")
